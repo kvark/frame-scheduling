@@ -7,20 +7,16 @@ class Queue(list):
         self.current = None
         self.next_time = 0
     def schedule(self, time):
-        print "sched", time
-        global frame_delay
-        global frame_count
+        result = None
         if self.next_time == time:
             if self.current:
-                frame_count += 1
-                frame_delay += time - self.current.start_time 
-                print time - self.current.start_time 
-                self.pop(0)
+                result = self.pop(0)
 
         if self.next_time <= time and len(self):
             self.current = self[0]
             self.next_time = self.current.length + time
             print "sched next", self.next_time
+        return result
     
 class Frame:
     def __init__(self, start_time, length):
@@ -37,12 +33,14 @@ while time < end_time:
         # back pressure -- don't let the queue grow too long
         if len(main_thread) <= MAX_QUEUE_LENGTH:
             main_thread.append(Frame(time, (18*1000,)))
-            main_thread.schedule(time)
         else:
             print "skipped frame"
-    if main_thread.next_time == time:
-        #print current
-        main_thread.schedule(time)
+    finished_frame = main_thread.schedule(time)
+    if finished_frame:
+        frame_count += 1
+        frame_delay += time - finished_frame.start_time
+        print time - finished_frame.start_time
+        compositor.append(finished_frame)
         
     time += 1
 
