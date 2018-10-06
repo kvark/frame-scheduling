@@ -45,6 +45,7 @@ scene_builder = Queue()
 COMPOSITOR_SCHEDULE_ON_VSYNC = True
 
 total_live_frames = 0
+compositor_live_frames = 0
 finished_frames = []
 while time < end_time:
     if time % 16666 == 0:
@@ -54,13 +55,14 @@ while time < end_time:
             if len(pending_composite) > 1:
                 print "skipping frames for composite"
             if len(compositor) == 0:
+                compositor_live_frames += 1
                 compositor.append(pending_composite.pop())
                 pending_composite = []
 
         MAX_QUEUE_LENGTH = 1
         # back pressure -- don't let the queue grow too long
         #if len(main_thread) <= MAX_QUEUE_LENGTH:
-        if total_live_frames <= 1:
+        if total_live_frames <= 1 and compositor_live_frames <= 1:
             main_thread.append(Frame(time, [30*1000, 8*1000, 14*1000, 39*1000]))
             total_live_frames += 1
         else:
@@ -76,17 +78,19 @@ while time < end_time:
         if COMPOSITOR_SCHEDULE_ON_VSYNC:
             pending_composite.append(finished_frame)
         else:
+            compositor_live_frames += 1
             compositor.append(finished_frame)
   
     finished_frame = compositor.schedule(time)
 
     if finished_frame:
+        total_live_frames -= 1
         renderer.append(finished_frame)
 
     finished_frame = renderer.schedule(time)
 
     if finished_frame:
-        total_live_frames -= 1
+        compositor_live_frames -= 1
         frame_count += 1
         frame_delay += time - finished_frame.start_time
         finished_frame.end_time = time
