@@ -6,22 +6,23 @@ class Queue(list):
     def __init__(self):
         self.current = None
         self.next_time = 0
-    def schedule(self, time):
+    def run(self, time):
         result = None
-        if self.next_time == time:
+        if self.next_time <= time:
             #print id(self), "finished", time
             if self.current:
                 result = self.pop(0)
                 result.finish_times.append(time)
                 self.current = None
+        return result
 
+    def schedule(self, time):
         if self.next_time <= time and len(self) and not self.current:
             self.current = self[0]
             self.current.start_times.append(time)
             #print time, self.next_time, id(self), self, self.current.length
             self.next_time = self.current.length.pop(0) + time
             #print "sched next", self.next_time
-        return result
     def append(self, frame):
         global time
         frame.enqueue_times.append(time)
@@ -42,7 +43,7 @@ compositor = Queue()
 renderer = Queue()
 scene_builder = Queue()
 
-COMPOSITOR_SCHEDULE_ON_VSYNC = True
+COMPOSITOR_SCHEDULE_ON_VSYNC = False
 
 total_live_frames = 0
 compositor_live_frames = 0
@@ -67,8 +68,8 @@ while time < end_time:
         # best for [30*1000, 8*1000, 14*1000, 39*1000]
         #if total_live_frames < 4 and len(main_thread) <= 2 and len(scene_builder) <= 2 and len(compositor) <= 2 and len(renderer) <= 2:
         # best for [30*1000, 2*1000, 8*1000, 6*1000]
-        if total_live_frames < 4 and len(main_thread) <= 1 and len(scene_builder) <= 1 and len(compositor) <= 2 and len(renderer) <= 1:
-        #if total_live_frames < 4: # and len(main_thread) <= 2 and len(scene_builder) <= 2 and len(compositor) <= 2 and len(renderer) <= 2:
+        if len(scene_builder) <= 1 and len(main_thread) < 1:
+        #if total_live_frames < 4 and len(main_thread) <= 2 and len(scene_builder) <= 2 and len(compositor) <= 2 and len(renderer) <= 2:
             print frame_no, len(renderer)
             main_thread.append(Frame(time, [30*1000, 8*1000, 14*1000, 39*1000]))
             #main_thread.append(Frame(time, [8*1000, 2*1000, 8*1000, 6*1000]))
@@ -76,27 +77,34 @@ while time < end_time:
             total_live_frames += 1
             frame_no += 1
         else:
-            print "skipped scheduling frame"
-    finished_frame = main_thread.schedule(time)
+            print "skipped scheduling frame", len(main_thread), len(scene_builder), len(compositor), len(renderer)
+    main_thread.schedule(time)
+    finished_frame = main_thread.run(time)
     
     if finished_frame:
         scene_builder.append(finished_frame)
 
-    finished_frame = scene_builder.schedule(time)
+    if len(compositor) <= 1:
+        scene_builder.schedule(time)
     
+    finished_frame = scene_builder.run(time)
+
     if finished_frame:
         if COMPOSITOR_SCHEDULE_ON_VSYNC:
             pending_composite.append(finished_frame)
         else:
             compositor_live_frames += 1
             compositor.append(finished_frame)
-  
-    finished_frame = compositor.schedule(time)
+ 
+    if len(renderer) <= 1:
+        compositor.schedule(time)
+    finished_frame = compositor.run(time)
 
     if finished_frame:
         renderer.append(finished_frame)
 
-    finished_frame = renderer.schedule(time)
+    renderer.schedule(time)
+    finished_frame = renderer.run(time)
 
     if finished_frame:
         total_live_frames -= 1
