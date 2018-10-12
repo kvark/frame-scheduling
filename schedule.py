@@ -47,6 +47,7 @@ COMPOSITOR_SCHEDULE_ON_VSYNC = True
 total_live_frames = 0
 compositor_live_frames = 0
 finished_frames = []
+frame_no = 0
 while time < end_time:
     if time % 16666 == 0:
         # vsync
@@ -62,9 +63,18 @@ while time < end_time:
         MAX_QUEUE_LENGTH = 1
         # back pressure -- don't let the queue grow too long
         #if len(main_thread) <= MAX_QUEUE_LENGTH:
-        if total_live_frames <= 1 and compositor_live_frames <= 1:
+        #if total_live_frames < 1 and compositor_live_frames <= 1:
+        # best for [30*1000, 8*1000, 14*1000, 39*1000]
+        #if total_live_frames < 4 and len(main_thread) <= 2 and len(scene_builder) <= 2 and len(compositor) <= 2 and len(renderer) <= 2:
+        # best for [30*1000, 2*1000, 8*1000, 6*1000]
+        if total_live_frames < 4 and len(main_thread) <= 1 and len(scene_builder) <= 1 and len(compositor) <= 2 and len(renderer) <= 1:
+        #if total_live_frames < 4: # and len(main_thread) <= 2 and len(scene_builder) <= 2 and len(compositor) <= 2 and len(renderer) <= 2:
+            print frame_no, len(renderer)
             main_thread.append(Frame(time, [30*1000, 8*1000, 14*1000, 39*1000]))
+            #main_thread.append(Frame(time, [8*1000, 2*1000, 8*1000, 6*1000]))
+            #main_thread.append(Frame(time, [30*1000, 2*1000, 8*1000, 6*1000]))
             total_live_frames += 1
+            frame_no += 1
         else:
             print "skipped scheduling frame"
     finished_frame = main_thread.schedule(time)
@@ -84,12 +94,12 @@ while time < end_time:
     finished_frame = compositor.schedule(time)
 
     if finished_frame:
-        total_live_frames -= 1
         renderer.append(finished_frame)
 
     finished_frame = renderer.schedule(time)
 
     if finished_frame:
+        total_live_frames -= 1
         compositor_live_frames -= 1
         frame_count += 1
         frame_delay += time - finished_frame.start_time
