@@ -1,5 +1,5 @@
 time = 0
-end_time = 1000000
+end_time = 2000000
 frame_count = 0
 frame_delay = 0
 class Queue(list):
@@ -68,7 +68,7 @@ while time < end_time:
         # best for [30*1000, 8*1000, 14*1000, 39*1000]
         #if total_live_frames < 4 and len(main_thread) <= 2 and len(scene_builder) <= 2 and len(compositor) <= 2 and len(renderer) <= 2:
         # best for [30*1000, 2*1000, 8*1000, 6*1000]
-        if len(scene_builder) <= 1 and len(main_thread) < 1:
+        if (len(scene_builder) < 1 or scene_builder.current) and len(main_thread) < 1:
         #if total_live_frames < 4 and len(main_thread) <= 2 and len(scene_builder) <= 2 and len(compositor) <= 2 and len(renderer) <= 2:
             print frame_no, len(renderer)
             main_thread.append(Frame(time, [30*1000, 8*1000, 14*1000, 39*1000]))
@@ -84,7 +84,7 @@ while time < end_time:
     if finished_frame:
         scene_builder.append(finished_frame)
 
-    if len(compositor) <= 1:
+    if (len(compositor) < 1 or compositor.current) and len(compositor) < 1:
         scene_builder.schedule(time)
     
     finished_frame = scene_builder.run(time)
@@ -96,7 +96,7 @@ while time < end_time:
             compositor_live_frames += 1
             compositor.append(finished_frame)
  
-    if len(renderer) <= 1:
+    if (len(renderer) < 1 or renderer.current) and len(renderer) <= 1:
         compositor.schedule(time)
     finished_frame = compositor.run(time)
 
