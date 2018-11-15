@@ -1,4 +1,4 @@
-time = 0
+dtime = 0
 end_time = 1000000
 frame_count = 0
 frame_delay = 0
